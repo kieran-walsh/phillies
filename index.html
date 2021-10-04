@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Qualifying Offer</title>
+        <meta charset="utf-8"/>
+        <meta name="author" content="Kieran Walsh"/>
+        <!-- Load d3.js library -->
+        <script src="https://d3js.org/d3.v4.js"></script>
+    </head>
+    <body onload='drawChart()'>
+        <h1>Qualifying Offer</h1>
+        <div id='output'></div>
+        <script>
+            //Fetch the JSON salary data and then create a histogram
+            //Consulted this source:
+            //https://www.d3-graph-gallery.com/graph/histogram_basic.html
+            function drawChart() {
+                //Chart dimensions and margins
+                var margin = {top: 50, right: 0, bottom: 50, left: 70},
+                    width = 900 - margin.left - margin.right,
+                    height = 400 - margin.top - margin.bottom;
+
+                //Add the chart container to HTML page
+                var svg = d3.select("#output")
+                .append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                    .attr("transform",
+                        "translate(" + margin.left + "," + margin.top + ")");
+
+                // get the data
+                d3.json("/data", function(dataFull) {
+                    if ('error' in dataFull) {
+                        document.getElementById('output').innerHTML = "There was an error retrieving the data. ("+dataFull.error.code+")";
+                        return;
+                    }
+                    let data = dataFull.salaries;
+                    let meta = dataFull.meta;
+
+                    //Create X-axis
+                    var x = d3.scaleLinear()
+                        //Domain is smallest -> largest values in dataset
+                        .domain([meta.min, meta.max])
+                        .range([0, width]);
+                    svg.append("g")
+                        .attr("transform", "translate(0," + height + ")")
+                        .call(d3.axisBottom(x));
+
+                    // Create histogram and its properties
+                    var histogram = d3.histogram()
+                        //Use salary property from JSON for values
+                        .value(function(d) { return d.salary; })
+                        .domain(x.domain())
+                        .thresholds(x.ticks(70));
+
+                    // Get bins from salary data
+                    var bins = histogram(data);
+
+                    //Create Y-axis
+                    var y = d3.scaleLinear()
+                        .range([height, 0]);
+                        y.domain([0, d3.max(bins, function(d) { return d.length; })]);
+                    svg.append("g")
+                        .call(d3.axisLeft(y));
+
+                    //Adding the histogram bars
+                    svg.selectAll("rect")
+                        .data(bins)
+                        .enter()
+                        .append("rect")
+                            .attr("x", 1)
+                            .attr("transform", function(d) { return "translate(" + x(d.x0) + "," + y(d.length) + ")"; })
+                            .attr("width", function(d) { return x(d.x1) - x(d.x0) -1 ; })
+                            .attr("height", function(d) { return height - y(d.length); })
+                            .style("fill", "#284898") //Blue color from Phillies color scheme
+
+
+                    //Adding title
+                    svg.append("text")
+                    .attr("x", (width/2))             
+                    .attr("y", 0-20)
+                    .attr("text-anchor", "middle")  
+                    .style("font-size", "20px") 
+                    .text("Salary Distribution of 125 Highest-Earning MLB Players (2016)");
+
+                    //Adding X-axis label
+                    svg.append("text")
+                    .attr("x", (width/2))             
+                    .attr("y", height + 40)
+                    .attr("text-anchor", "middle")  
+                    .style("font-size", "12px") 
+                    .text("Salary (USD)");
+
+                    //Adding Y-axis label
+                    svg.append("text")
+                    .attr("x", -(height/2.5))             
+                    .attr("y", -30)
+                    .attr("transform", "rotate(-90)")
+                    .attr("text-anchor", "middle")  
+                    .style("font-size", "12px") 
+                    .text("Number of Players");
+
+                    //Adding minimum salary label
+                    svg.append("text")
+                    .attr("x", width * (4/5))             
+                    .attr("y", 20)
+                    .attr("text-anchor", "right")  
+                    .style("font-size", "12px") 
+                    .text("Minimum Salary: "+formatDollarAmount(meta.min));
+
+                    //Adding maximum salary label
+                    svg.append("text")
+                    .attr("x", width * (4/5))             
+                    .attr("y", 40)
+                    .attr("text-anchor", "right")  
+                    .style("font-size", "12px") 
+                    .text("Maximum Salary: "+formatDollarAmount(meta.max));
+
+                    //Adding median salary label
+                    svg.append("text")
+                    .attr("x", width * (4/5))             
+                    .attr("y", 60)
+                    .attr("text-anchor", "right")  
+                    .style("font-size", "12px") 
+                    .text("Median Salary: "+formatDollarAmount(meta.med));
+
+                    //Adding qualifying offer 
+                    svg.append("text")
+                    .attr("x", width * (2/3))             
+                    .attr("y", 80)
+                    .attr("text-anchor", "right")  
+                    .style("font-size", "16px")
+                    .text("Qualifying Offer Amount: "+formatDollarAmount(meta.avg));
+                    });
+            }
+
+            //Use Intl.NumberFormat class to convert float to dollar amount
+            //@param amount: number
+            //@returns dollar amount string ($x,xxx.xx)
+            //Consulted this source: 
+            //https://stackoverflow.com/questions/149055/how-to-format-numbers-as-currency-strings
+            function formatDollarAmount(amount) {
+                var formatter = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                });
+                return formatter.format(amount); 
+            }
+        </script>
+    </body>
+</html>
